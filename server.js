@@ -11,6 +11,8 @@ import routes from "./src/routes/postsRoutes.js";
 // Essa instância representa o servidor web que irá atender às requisições.
 const app = express();
 
+app.use(express.static("uploads"))
+
 // Chama a função `routes` para configurar as rotas da aplicação.
 // A função `routes` provavelmente define as diferentes rotas (como GET, POST, PUT, DELETE)
 // e associa cada rota a uma função controladora que irá processar a requisição.

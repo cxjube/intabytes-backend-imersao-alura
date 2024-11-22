@@ -1,70 +1,104 @@
-import { getTodosPosts, criarPost } from "../models/postsModel.js";
+import { getTodosPosts, criarPost, atualizarPost } from "../models/postsModel.js";
+// Importa as funções para obter, criar e atualizar posts do modelo de dados.
+
 import fs from "fs";
+// Importa o módulo do Node.js para interagir com o sistema de arquivos.
 
-// Importa as funções `getTodosPosts` e `criarPost` do módulo `postsModel`,
-// que provavelmente contém a lógica para interagir com o banco de dados e
-// realizar operações relacionadas aos posts.
-// Importa o módulo `fs` (filesystem) para realizar operações com o sistema de arquivos.
+import gerarDescricaoComGemini from "../services/geminiService.js";
+// Importa a função para gerar descrições de imagens utilizando o serviço Gemini.
 
+// Define uma função assíncrona para listar todos os posts.
 export async function listarPosts(req, res) {
-  // Define uma função assíncrona para listar todos os posts.
-  // Recebe como parâmetros o objeto `req` (request) e o objeto `res` (response).
-
-  // Chama a função `getTodosPosts` para buscar todos os posts do banco de dados.
+  // Obtém todos os posts do banco de dados utilizando a função `getTodosPosts`.
   const posts = await getTodosPosts();
 
   // Envia os posts como resposta em formato JSON com status 200 (sucesso).
   res.status(200).json(posts);
 }
 
+// Define uma função assíncrona para criar um novo post.
 export async function postarNovoPost(req, res) {
-  // Define uma função assíncrona para criar um novo post.
-
-  // Obtém os dados do novo post a partir do corpo da requisição.
+  // Extrai os dados do novo post do corpo da requisição.
   const novoPost = req.body;
 
-  // Bloco try-catch para tratar possíveis erros durante a criação do post.
+  // Utiliza um bloco try-catch para tratar possíveis erros.
   try {
-    // Chama a função `criarPost` para inserir o novo post no banco de dados.
+    // Insere o novo post no banco de dados e armazena o resultado.
     const postCriado = await criarPost(novoPost);
 
-    // Envia o post criado como resposta em formato JSON com status 200 (sucesso).
+    // Envia o post criado como resposta com status 200 (sucesso).
     res.status(200).json(postCriado);
-  } catch (erro) {
-    // Imprime o erro no console para fins de depuração.
-    console.error(erro.message);
+  } catch (error) {
+    // Imprime o erro no console para depuração.
+    console.error(error.message);
 
     // Envia uma mensagem de erro ao cliente com status 500 (erro interno do servidor).
     res.status(500).json({ Erro: "Falha na requisição" });
   }
 }
 
+// Define uma função assíncrona para fazer upload de uma imagem e criar um novo post.
 export async function uploadImagem(req, res) {
-  // Define uma função assíncrona para fazer upload de uma imagem e criar um novo post.
-
-  // Cria um objeto com os dados do novo post, incluindo a URL da imagem.
+  // Cria um objeto para representar o novo post, incluindo a URL da imagem original.
   const novoPost = {
     descricao: "",
     imgUrl: req.file.originalname,
     alt: "",
   };
 
-  // Bloco try-catch para tratar possíveis erros durante o upload e a criação do post.
+  // Utiliza um bloco try-catch para tratar possíveis erros.
   try {
-    // Chama a função `criarPost` para inserir o novo post no banco de dados.
+    // Insere o novo post no banco de dados e armazena o resultado.
     const postCriado = await criarPost(novoPost);
 
-    // Constrói o novo nome do arquivo da imagem, usando o ID do post criado.
+    // Constrói o novo nome da imagem utilizando o ID do post criado.
     const imagemAtualizada = `uploads/${postCriado.insertedId}.png`;
 
-    // Renomeia o arquivo da imagem para o novo nome, movendo-o para a pasta "uploads".
+    // Renomeia o arquivo da imagem e move para a pasta "uploads".
     fs.renameSync(req.file.path, imagemAtualizada);
 
-    // Envia o post criado como resposta em formato JSON com status 200 (sucesso).
+    // Envia o post criado como resposta com status 200 (sucesso).
     res.status(200).json(postCriado);
-  } catch (erro) {
-    // Imprime o erro no console para fins de depuração.
-    console.error(erro.message);
+  } catch (error) {
+    // Imprime o erro no console para depuração.
+    console.error(error.message);
+
+    // Envia uma mensagem de erro ao cliente com status 500 (erro interno do servidor).
+    res.status(500).json({ Erro: "Falha na requisição" });
+  }
+}
+
+// Define uma função assíncrona para atualizar um post existente.
+export async function atualizarNovoPost(req, res) {
+  // Obtém o ID do post a ser atualizado a partir dos parâmetros da requisição.
+  const id = req.params.id;
+
+  // Constrói a URL completa da imagem.
+  const urlImagem = `http://localhost:3000/${id}.png`;
+
+  // Utiliza um bloco try-catch para tratar possíveis erros.
+  try {
+    // Lê o conteúdo da imagem e o converte para um buffer.
+    const imgBuffer = fs.readFileSync(`uploads/${id}.png`);
+
+    // Gera uma descrição para a imagem utilizando o serviço Gemini.
+    const descricao = await gerarDescricaoComGemini(imgBuffer);
+
+    // Cria um objeto com os dados atualizados do post.
+    const post = {
+      imgUrl: urlImagem,
+      descricao: descricao,
+      alt: req.body.alt
+    };
+
+    // Atualiza o post no banco de dados.
+    const postCriado = await atualizarPost(id, post);
+
+    // Envia o post atualizado como resposta com status 200 (sucesso).
+    res.status(200).json(postCriado);
+  } catch (error) {
+    // Imprime o erro no console para depuração.
+    console.error(error.message);
 
     // Envia uma mensagem de erro ao cliente com status 500 (erro interno do servidor).
     res.status(500).json({ Erro: "Falha na requisição" });
